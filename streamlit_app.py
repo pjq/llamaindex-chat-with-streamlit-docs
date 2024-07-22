@@ -1,7 +1,15 @@
 import streamlit as st
 import openai
+import os
+import logging
 from llama_index.llms.openai import OpenAI
-from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings, StorageContext, load_index_from_storage
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+PERSIST_DIR = "./storage"
+DATA_DIR = "../mdc-docs/docs/"
 
 st.set_page_config(page_title="Chat with the MDC/PPX docs, powered by LlamaIndex", page_icon="🦙", layout="centered", initial_sidebar_state="auto", menu_items=None)
 openai.api_key = st.secrets.openai_key
@@ -19,8 +27,23 @@ if "messages" not in st.session_state.keys():  # Initialize the chat messages hi
 
 @st.cache_resource(show_spinner=False)
 def load_data():
-    reader = SimpleDirectoryReader(input_dir="../mdc-docs/docs/", recursive=True)
-    docs = reader.load_data()
+    def create_index(data_dir, persist_dir):
+        logging.info(f"Creating index from documents in {data_dir}")
+        documents = SimpleDirectoryReader(data_dir).load_data()
+        index = VectorStoreIndex.from_documents(documents)
+        index.storage_context.persist(persist_dir=persist_dir)
+        logging.info(f"Index created and persisted to {persist_dir}")
+        return index
+
+    def load_or_create_index(persist_dir, data_dir):
+        if not os.path.exists(persist_dir):
+            logging.info(f"No existing storage found at {persist_dir}. Creating new index.")
+            return create_index(data_dir, persist_dir)
+        else:
+            logging.info(f"Loading existing index from {persist_dir}")
+            storage_context = StorageContext.from_defaults(persist_dir=persist_dir)
+            return load_index_from_storage(storage_context)
+
     Settings.llm = OpenAI(
         model="gpt-4o",
         temperature=0.2,
@@ -32,9 +55,7 @@ def load_data():
         your answers technical and based on 
         facts – do not hallucinate features.""",
     )
-    index = VectorStoreIndex.from_documents(docs)
-    return index
-
+    return load_or_create_index(PERSIST_DIR, DATA_DIR)
 
 index = load_data()
 
