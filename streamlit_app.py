@@ -9,12 +9,12 @@ from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings, 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 PERSIST_DIR = "./storage"
-DATA_DIR = "../mdc-docs/docs/"
+DATA_DIR = "./mdc-docs/"
 
 st.set_page_config(page_title="Chat with the MDC/PPX docs, powered by LlamaIndex", page_icon="🦙", layout="centered", initial_sidebar_state="auto", menu_items=None)
 openai.api_key = st.secrets.openai_key
 openai.base_url= st.secrets.base_url
-st.title("Chat with the Streamlit docs, powered by LlamaIndex 💬🦙")
+st.title("Chat with the MDC/PPX docs, powered by LlamaIndex 💬🦙")
 st.info("Check out the full MDC tutorial [blog post](https://pages.github.tools.sap/sfmobile/mdc-docs/)", icon="📃")
 
 if "messages" not in st.session_state.keys():  # Initialize the chat messages history
@@ -31,6 +31,10 @@ def load_data():
         logging.info(f"Creating index from documents in {data_dir}")
         documents = SimpleDirectoryReader(data_dir).load_data()
         index = VectorStoreIndex.from_documents(documents)
+        if not os.path.exists(persist_dir):
+            os.makedirs(persist_dir)
+            logging.info(f"Created directory at {persist_dir}")
+
         index.storage_context.persist(persist_dir=persist_dir)
         logging.info(f"Index created and persisted to {persist_dir}")
         return index
